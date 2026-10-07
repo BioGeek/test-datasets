@@ -8,6 +8,7 @@ Test data for the [nf-core/denovoproteomics](https://github.com/nf-core/denovopr
 |------|-------------|------|
 | `samplesheet.csv` | Samplesheet for standard mode (2 samples) | <1 KB |
 | `samplesheet_mapping.csv` | Samplesheet for mapping mode (2 samples) | <1 KB |
+| `samplesheet_hepg2.csv` | Samplesheet for the de novo, rescoring, assembly and mapping fixture (1 sample) | <1 KB |
 | `vendor/bruker_timstof_dia.d/` | Bruker timsTOF diaPASEF acquisition (TDF) | 11 MB |
 | `vendor/bruker_timstof_dda.d/` | Bruker timsTOF ddaPASEF acquisition (TDF) | 59 MB |
 | `vendor/sciex_qtrap.wiff` + `.wiff.scan` | Sciex QTRAP acquisition | 3.3 MB |
