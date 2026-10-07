@@ -15,6 +15,8 @@ Test data for the [nf-core/denovoproteomics](https://github.com/nf-core/denovopr
 | `clustalo/cluster_multi_4seq.fasta` | A 4-sequence scaffold cluster, input to CLUSTALO_ALIGN | <1 KB |
 | `clustalo/cluster_multi_2seq.fasta` | A 2-sequence scaffold cluster (the minimum alignable) | <1 KB |
 | `msspectra/OVEMB150205_12_60.mzML` | First 60 spectra of OVEMB150205_12, for the CI smoke test | 880 KB |
+| `msspectra/HepG2_rep1_120.mzML` | First 120 spectra of a HepG2 immunopeptidome run, for de novo, rescoring, assembly and mapping | 728 KB |
+| `database/human_HepG2_mini.fasta` | 1,000-protein human slice, the mapping reference for `HepG2_rep1_120.mzML` | 638 KB |
 
 ## Vendor spectra
 
@@ -126,6 +128,71 @@ msconvert OVEMB150205_12.mzML --mzML --zlib --64 \
 sha256: bceb49c29d327279abdc7a92f25c42f4f701df0171d848fc5b9e8b06f9081293
 ```
 
+### `msspectra/HepG2_rep1_120.mzML` and `database/human_HepG2_mini.fasta`
+
+The first 120 spectra of a HepG2 immunopeptidome run, all of them MS2 with a
+precursor charge state, paired with a 1,000-protein slice of the human
+proteome.
+
+This is the fixture for everything downstream of conversion: de novo
+prediction, Winnow rescoring, assembly and mapping. `OVEMB150205_12_60.mzML`
+drives the same chain but its predictions are too poor to exercise it
+meaningfully, which is the reason this file exists. Measured over the first 600
+spectra of each file, with InstaNovo 1.2.2 and the `winnow-general-model`
+calibrator at a 5% FDR threshold:
+
+| | OVEMB150205_12 | HepG2_rep1 |
+|---|---|---|
+| InstaNovo confidence, median | 0.34 | 0.95 |
+| predictions matching the precursor mass within 20 ppm | 34% | 83% |
+| PSMs kept by Winnow at 5% FDR | 40 / 591 (7%) | 213 / 589 (36%) |
+| filtered peptides found in the human proteome | 2 / 40 (5%) | 96 / 121 (79%) |
+
+The difference is the acquisition. `OVEMB150205_12` is an LTQ Orbitrap Velos
+run whose MS2 scans are recorded in the ion trap at unit resolution
+(`ITMS + c NSI d Full ms2 …@cid30.00`); `HepG2_rep1` is an Orbitrap run with
+high-resolution beam-type CID MS2. De novo models are trained on the latter,
+and the fragment mass accuracy they rely on is simply absent from the former.
+
+At 120 spectra the fixture yields 27 PSMs at 5% FDR, 19 unique peptides, 17 of
+which map to 29 proteins — abundant human proteins such as hnRNP A1, serum
+albumin, haemoglobin and alpha-1-antitrypsin. That is enough for Winnow's FDR
+filter to do real work and for a non-trivial assembly threshold to be chosen,
+which a fixture retaining a handful of noise PSMs cannot support.
+
+**Spectra derived from:**
+`nf-core/test-datasets@modules:data/proteomics/msspectra/HepG2_rep1_small.mzML`,
+first 120 spectra by index. That file is itself a subset of an nf-core/mhcquant
+test run (`nf-core/test-datasets@mhcquant:testdata/HepG2_rep1_small.mzML`,
+"subsets of cell line HepG2 immunopeptidome runs"), searched with Comet under
+unspecific cleavage — an HLA ligandome, so the peptides are not tryptic.
+
+```python
+from pyopenms import MzMLFile, MSExperiment
+
+exp = MSExperiment()
+MzMLFile().load("HepG2_rep1_small.mzML", exp)
+exp.setSpectra(list(exp.getSpectra())[:120])
+exp.setChromatograms([])
+MzMLFile().store("HepG2_rep1_120.mzML", exp)
+```
+
+```
+sha256: b0e5c6d7c0d1573e8393bf8a3911a0074599c2251fcaee5b80a82706e86e5a2d
+```
+
+**FASTA derived from:**
+`nf-core/test-datasets@modules:data/proteomics/database/UP000005640_9606.fasta`
+(human SwissProt, 20,610 entries). The slice holds the 29 proteins the fixture's
+peptides map to plus 971 entries taken at a fixed stride through the rest, so
+the reference stays a realistic search space rather than a list of guaranteed
+hits. Mapping against the slice reproduces the full-proteome result exactly:
+17 of 19 peptides, 29 proteins.
+
+```
+sha256: d168f75c80fd7373e0e7a7fc7719761da68c19bf54b2f1a4447030bc8ff97de8
+```
+
 ## Cross-branch references
 
 Spectra and FASTA references not listed above are reused from the `modules`
@@ -134,7 +201,9 @@ branch to avoid data duplication:
 - **Spectra**: `data/proteomics/msspectra/OVEMB150205_12.raw` (22.5 MB) and
   `OVEMB150205_14.raw` (26.5 MB)
 - **FASTA reference** for mapping mode: `data/proteomics/database/yeast_UPS_mini.fasta`
-  (4.2 KB, 10 proteins)
+  (4.2 KB, 10 proteins). Note that this file holds 10 human UPS proteins and no
+  yeast; `database/human_HepG2_mini.fasta` above is the reference that pairs with
+  spectra in this branch.
 
 ## Usage
 
